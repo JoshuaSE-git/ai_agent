@@ -38,30 +38,43 @@ def main():
 
 
 def generate_content(client, messages, verbose):
-    response = client.models.generate_content(
-        model="gemini-2.0-flash-001",
-        contents=messages,
-        config=types.GenerateContentConfig(
-            tools=[available_functions], system_instruction=SYSTEM_PROMPT
-        ),
-    )
-    if verbose:
-        print(f"Prompt tokens: {response.usage_metadata.prompt_token_count}")
-        print(f"Response tokens: {response.usage_metadata.candidates_token_count}\n")
+    messages = messages.copy()
+    iterations = 0
+    calling = True
+    while iterations <= 20 and calling:
+        response = client.models.generate_content(
+            model="gemini-2.0-flash-001",
+            contents=messages,
+            config=types.GenerateContentConfig(
+                tools=[available_functions], system_instruction=SYSTEM_PROMPT
+            ),
+        )
 
-    if response.function_calls:
-        for call in response.function_calls:
-            fn_call = types.FunctionCall(
-                name=call.name,
-                args=call.args,
+        for candidate in response.candidates:
+            messages.append(candidate.content)
+
+        if verbose:
+            print(f"Prompt tokens: {response.usage_metadata.prompt_token_count}")
+            print(
+                f"Response tokens: {response.usage_metadata.candidates_token_count}\n"
             )
-            function_result = call_function(fn_call, verbose)
-            if not function_result.parts[0].function_response.response:
-                raise Exception("Error: no response")
-            if verbose:
-                print(f"-> {function_result.parts[0].function_response.response}")
-    else:
-        print(response.text)
+
+        if response.function_calls:
+            for call in response.function_calls:
+                fn_call = types.FunctionCall(
+                    name=call.name,
+                    args=call.args,
+                )
+                function_result = call_function(fn_call, verbose)
+                messages.append(function_result)
+                if not function_result.parts[0].function_response.response:
+                    raise Exception("Error: no response")
+                if verbose:
+                    print(f"-> {function_result.parts[0].function_response.response}")
+        else:
+            calling = False
+            print(response.text)
+        iterations += 1
 
 
 def call_function(function_call_part, verbose=False):
