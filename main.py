@@ -51,8 +51,6 @@ def generate_content(client, messages, verbose):
 
     if response.function_calls:
         for call in response.function_calls:
-            print(f"Calling function: {call.name}({call.args})")
-
             fn_call = types.FunctionCall(
                 name=call.name,
                 args=call.args,
